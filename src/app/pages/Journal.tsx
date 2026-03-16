@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Bold, Italic, Code, List, ListOrdered, Image, Link, Type } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Bold, Italic, Code, List, ListOrdered, Image, Link } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 // Mock journal entries - each entry has left and right pages
@@ -48,51 +48,45 @@ Tomorrow might bring challenges, but today was perfect.`
 
 export function Journal() {
   const [currentPage, setCurrentPage] = useState(0);
-  const [direction, setDirection] = useState(0);
+  const [isFlipping, setIsFlipping] = useState(false);
+  const [flipDirection, setFlipDirection] = useState<'next' | 'prev' | null>(null);
   const [activeEditor, setActiveEditor] = useState<'left' | 'right' | null>(null);
   const [leftContent, setLeftContent] = useState(journalEntries[currentPage].leftPage.content);
   const [rightContent, setRightContent] = useState(journalEntries[currentPage].rightPage.content);
 
   const goToNextPage = () => {
-    if (currentPage < journalEntries.length - 1) {
-      setDirection(1);
-      setCurrentPage(currentPage + 1);
+    if (currentPage < journalEntries.length - 1 && !isFlipping) {
+      setFlipDirection('next');
+      setIsFlipping(true);
       setActiveEditor(null);
-      setLeftContent(journalEntries[currentPage + 1].leftPage.content);
-      setRightContent(journalEntries[currentPage + 1].rightPage.content);
+      setTimeout(() => {
+        setCurrentPage(currentPage + 1);
+        setLeftContent(journalEntries[currentPage + 1].leftPage.content);
+        setRightContent(journalEntries[currentPage + 1].rightPage.content);
+        setIsFlipping(false);
+        setFlipDirection(null);
+      }, 800);
     }
   };
 
   const goToPrevPage = () => {
-    if (currentPage > 0) {
-      setDirection(-1);
-      setCurrentPage(currentPage - 1);
+    if (currentPage > 0 && !isFlipping) {
+      setFlipDirection('prev');
+      setIsFlipping(true);
       setActiveEditor(null);
-      setLeftContent(journalEntries[currentPage - 1].leftPage.content);
-      setRightContent(journalEntries[currentPage - 1].rightPage.content);
+      setTimeout(() => {
+        setCurrentPage(currentPage - 1);
+        setLeftContent(journalEntries[currentPage - 1].leftPage.content);
+        setRightContent(journalEntries[currentPage - 1].rightPage.content);
+        setIsFlipping(false);
+        setFlipDirection(null);
+      }, 800);
     }
   };
 
   const currentEntry = journalEntries[currentPage];
-
-  // Book flip animation variants
-  const bookVariants = {
-    enter: (direction: number) => ({
-      rotateY: direction > 0 ? 25 : -25,
-      opacity: 0,
-      scale: 0.9,
-    }),
-    center: {
-      rotateY: 0,
-      opacity: 1,
-      scale: 1,
-    },
-    exit: (direction: number) => ({
-      rotateY: direction > 0 ? -25 : 25,
-      opacity: 0,
-      scale: 0.9,
-    }),
-  };
+  const nextEntry = currentPage < journalEntries.length - 1 ? journalEntries[currentPage + 1] : null;
+  const prevEntry = currentPage > 0 ? journalEntries[currentPage - 1] : null;
 
   const ToolbarButton = ({ icon: Icon, label }: { icon: any; label: string }) => (
     <button
@@ -103,6 +97,55 @@ export function Journal() {
     </button>
   );
 
+  const PageContent = ({ 
+    page, 
+    side, 
+    pageNumber, 
+    isEditing, 
+    content, 
+    onContentChange, 
+    onEditClick 
+  }: { 
+    page: any; 
+    side: 'left' | 'right'; 
+    pageNumber: number;
+    isEditing: boolean;
+    content: string;
+    onContentChange: (val: string) => void;
+    onEditClick: () => void;
+  }) => (
+    <div className="h-full overflow-y-auto px-12 py-10">
+      <div className={`max-w-xl ${side === 'left' ? 'ml-auto' : 'mr-auto'}`}>
+        {page.title && (
+          <h1 className="text-[28px] font-semibold text-[var(--foreground)] mb-6">
+            {page.title}
+          </h1>
+        )}
+        {isEditing ? (
+          <textarea
+            className="w-full min-h-[500px] bg-transparent resize-none outline-none text-[15px] leading-[1.8] text-[var(--foreground)] placeholder:text-[var(--foreground-tertiary)] font-mono"
+            value={content}
+            onChange={(e) => onContentChange(e.target.value)}
+            placeholder="Start writing..."
+            spellCheck={false}
+            autoFocus
+            onBlur={() => setActiveEditor(null)}
+          />
+        ) : (
+          <div 
+            className="text-[15px] leading-[1.8] text-[var(--foreground)] whitespace-pre-wrap cursor-text font-mono"
+            onClick={onEditClick}
+          >
+            {content}
+          </div>
+        )}
+      </div>
+      <div className={`absolute bottom-8 ${side === 'left' ? 'right-12' : 'left-12'} text-[12px] text-[var(--foreground-tertiary)] font-medium`}>
+        {pageNumber}
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex-1 flex flex-col h-full bg-[var(--background)] overflow-hidden">
       {/* Header */}
@@ -110,7 +153,7 @@ export function Journal() {
         <div className="flex items-center gap-4">
           <button 
             onClick={goToPrevPage}
-            disabled={currentPage === 0}
+            disabled={currentPage === 0 || isFlipping}
             className="p-2 rounded-lg hover:bg-[var(--hover)] text-[var(--foreground-secondary)] transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -120,7 +163,7 @@ export function Journal() {
           </div>
           <button 
             onClick={goToNextPage}
-            disabled={currentPage === journalEntries.length - 1}
+            disabled={currentPage === journalEntries.length - 1 || isFlipping}
             className="p-2 rounded-lg hover:bg-[var(--hover)] text-[var(--foreground-secondary)] transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronRight className="w-5 h-5" />
@@ -164,115 +207,174 @@ export function Journal() {
           className="relative w-full max-w-7xl h-full"
           style={{ perspective: '3000px' }}
         >
-          <AnimatePresence mode="wait" initial={false} custom={direction}>
-            <motion.div
-              key={currentEntry.id}
-              custom={direction}
-              variants={bookVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{
-                rotateY: { 
-                  type: 'spring', 
-                  stiffness: 60, 
-                  damping: 25 
-                },
-                opacity: { duration: 0.4 },
-                scale: { duration: 0.4 }
-              }}
-              className="absolute inset-0 flex gap-0"
+          <div className="absolute inset-0 flex gap-0">
+            {/* Static Left Page */}
+            <div 
+              className="flex-1 h-full bg-[var(--card)] border-l border-t border-b border-[var(--border-light)] rounded-l-lg overflow-hidden relative shadow-2xl"
               style={{
-                transformStyle: 'preserve-3d',
+                boxShadow: 'inset -8px 0 20px rgba(0,0,0,0.05)'
               }}
             >
-              {/* Left Page */}
-              <div 
-                className="flex-1 h-full bg-[var(--card)] border-l border-t border-b border-[var(--border-light)] rounded-l-lg overflow-hidden relative shadow-2xl"
-                style={{
-                  boxShadow: 'inset -8px 0 20px rgba(0,0,0,0.05)'
-                }}
-              >
-                {/* Left page binding shadow */}
-                <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-black/10 to-transparent pointer-events-none" />
-                
-                <div className="h-full overflow-y-auto px-12 py-10">
-                  <div className="max-w-xl ml-auto">
-                    {currentEntry.leftPage.title && (
-                      <h1 className="text-[28px] font-semibold text-[var(--foreground)] mb-6">
-                        {currentEntry.leftPage.title}
-                      </h1>
-                    )}
-                    {activeEditor === 'left' ? (
-                      <textarea
-                        className="w-full min-h-[500px] bg-transparent resize-none outline-none text-[15px] leading-[1.8] text-[var(--foreground)] placeholder:text-[var(--foreground-tertiary)] font-mono"
-                        value={leftContent}
-                        onChange={(e) => setLeftContent(e.target.value)}
-                        placeholder="Start writing..."
-                        spellCheck={false}
-                        autoFocus
-                        onBlur={() => setActiveEditor(null)}
-                      />
-                    ) : (
-                      <div 
-                        className="text-[15px] leading-[1.8] text-[var(--foreground)] whitespace-pre-wrap cursor-text font-mono"
-                        onClick={() => setActiveEditor('left')}
-                      >
-                        {leftContent}
-                      </div>
-                    )}
+              <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-black/10 to-transparent pointer-events-none z-10" />
+              
+              <PageContent 
+                page={currentEntry.leftPage}
+                side="left"
+                pageNumber={currentPage * 2 + 1}
+                isEditing={activeEditor === 'left'}
+                content={leftContent}
+                onContentChange={setLeftContent}
+                onEditClick={() => setActiveEditor('left')}
+              />
+            </div>
+
+            {/* Center Spine */}
+            <div className="w-[4px] h-full bg-gradient-to-b from-black/20 via-black/30 to-black/20 shadow-lg" style={{ zIndex: 20 }} />
+
+            {/* Static Right Page */}
+            <div 
+              className="flex-1 h-full bg-[var(--card)] border-r border-t border-b border-[var(--border-light)] rounded-r-lg overflow-hidden relative shadow-2xl"
+              style={{
+                boxShadow: 'inset 8px 0 20px rgba(0,0,0,0.05)'
+              }}
+            >
+              <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-black/10 to-transparent pointer-events-none z-10" />
+              
+              <PageContent 
+                page={currentEntry.rightPage}
+                side="right"
+                pageNumber={currentPage * 2 + 2}
+                isEditing={activeEditor === 'right'}
+                content={rightContent}
+                onContentChange={setRightContent}
+                onEditClick={() => setActiveEditor('right')}
+              />
+            </div>
+
+            {/* Flipping Page Overlay - Right to Left (Next) */}
+            <AnimatePresence>
+              {isFlipping && flipDirection === 'next' && nextEntry && (
+                <motion.div
+                  initial={{ rotateY: 0 }}
+                  animate={{ rotateY: -180 }}
+                  transition={{ 
+                    duration: 0.8, 
+                    ease: [0.4, 0.0, 0.2, 1]
+                  }}
+                  className="absolute top-0 bottom-0 right-0 w-1/2"
+                  style={{
+                    transformStyle: 'preserve-3d',
+                    transformOrigin: 'left center',
+                    zIndex: 30
+                  }}
+                >
+                  {/* Front of flipping page (current right page) */}
+                  <div 
+                    className="absolute inset-0 bg-[var(--card)] border-r border-t border-b border-[var(--border-light)] rounded-r-lg overflow-hidden shadow-2xl"
+                    style={{
+                      backfaceVisibility: 'hidden',
+                      boxShadow: 'inset 8px 0 20px rgba(0,0,0,0.05)'
+                    }}
+                  >
+                    <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-black/10 to-transparent pointer-events-none z-10" />
+                    <PageContent 
+                      page={currentEntry.rightPage}
+                      side="right"
+                      pageNumber={currentPage * 2 + 2}
+                      isEditing={false}
+                      content={rightContent}
+                      onContentChange={() => {}}
+                      onEditClick={() => {}}
+                    />
                   </div>
-                </div>
 
-                {/* Page number */}
-                <div className="absolute bottom-8 right-12 text-[12px] text-[var(--foreground-tertiary)] font-medium">
-                  {currentPage * 2 + 1}
-                </div>
-              </div>
-
-              {/* Center Spine */}
-              <div className="w-[4px] h-full bg-gradient-to-b from-black/20 via-black/30 to-black/20 shadow-lg" style={{ zIndex: 10 }} />
-
-              {/* Right Page */}
-              <div 
-                className="flex-1 h-full bg-[var(--card)] border-r border-t border-b border-[var(--border-light)] rounded-r-lg overflow-hidden relative shadow-2xl"
-                style={{
-                  boxShadow: 'inset 8px 0 20px rgba(0,0,0,0.05)'
-                }}
-              >
-                {/* Right page binding shadow */}
-                <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-black/10 to-transparent pointer-events-none" />
-                
-                <div className="h-full overflow-y-auto px-12 py-10">
-                  <div className="max-w-xl mr-auto">
-                    {activeEditor === 'right' ? (
-                      <textarea
-                        className="w-full min-h-[500px] bg-transparent resize-none outline-none text-[15px] leading-[1.8] text-[var(--foreground)] placeholder:text-[var(--foreground-tertiary)] font-mono"
-                        value={rightContent}
-                        onChange={(e) => setRightContent(e.target.value)}
-                        placeholder="Continue writing..."
-                        spellCheck={false}
-                        autoFocus
-                        onBlur={() => setActiveEditor(null)}
-                      />
-                    ) : (
-                      <div 
-                        className="text-[15px] leading-[1.8] text-[var(--foreground)] whitespace-pre-wrap cursor-text font-mono"
-                        onClick={() => setActiveEditor('right')}
-                      >
-                        {rightContent}
-                      </div>
-                    )}
+                  {/* Back of flipping page (next left page) */}
+                  <div 
+                    className="absolute inset-0 bg-[var(--card)] border-l border-t border-b border-[var(--border-light)] rounded-l-lg overflow-hidden shadow-2xl"
+                    style={{
+                      backfaceVisibility: 'hidden',
+                      transform: 'rotateY(180deg)',
+                      boxShadow: 'inset -8px 0 20px rgba(0,0,0,0.05)'
+                    }}
+                  >
+                    <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-black/10 to-transparent pointer-events-none z-10" />
+                    <PageContent 
+                      page={nextEntry.leftPage}
+                      side="left"
+                      pageNumber={(currentPage + 1) * 2 + 1}
+                      isEditing={false}
+                      content={nextEntry.leftPage.content}
+                      onContentChange={() => {}}
+                      onEditClick={() => {}}
+                    />
                   </div>
-                </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-                {/* Page number */}
-                <div className="absolute bottom-8 left-12 text-[12px] text-[var(--foreground-tertiary)] font-medium">
-                  {currentPage * 2 + 2}
-                </div>
-              </div>
-            </motion.div>
-          </AnimatePresence>
+            {/* Flipping Page Overlay - Left to Right (Prev) */}
+            <AnimatePresence>
+              {isFlipping && flipDirection === 'prev' && prevEntry && (
+                <motion.div
+                  initial={{ rotateY: 0 }}
+                  animate={{ rotateY: 180 }}
+                  transition={{ 
+                    duration: 0.8, 
+                    ease: [0.4, 0.0, 0.2, 1]
+                  }}
+                  className="absolute top-0 bottom-0 left-0 w-1/2"
+                  style={{
+                    transformStyle: 'preserve-3d',
+                    transformOrigin: 'right center',
+                    zIndex: 30
+                  }}
+                >
+                  {/* Front of flipping page (current left page) */}
+                  <div 
+                    className="absolute inset-0 bg-[var(--card)] border-l border-t border-b border-[var(--border-light)] rounded-l-lg overflow-hidden shadow-2xl"
+                    style={{
+                      backfaceVisibility: 'hidden',
+                      boxShadow: 'inset -8px 0 20px rgba(0,0,0,0.05)'
+                    }}
+                  >
+                    <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-black/10 to-transparent pointer-events-none z-10" />
+                    <PageContent 
+                      page={currentEntry.leftPage}
+                      side="left"
+                      pageNumber={currentPage * 2 + 1}
+                      isEditing={false}
+                      content={leftContent}
+                      onContentChange={() => {}}
+                      onEditClick={() => {}}
+                    />
+                  </div>
+
+                  {/* Back of flipping page (prev right page) */}
+                  <div 
+                    className="absolute inset-0 bg-[var(--card)] border-r border-t border-b border-[var(--border-light)] rounded-r-lg overflow-hidden shadow-2xl"
+                    style={{
+                      backfaceVisibility: 'hidden',
+                      transform: 'rotateY(180deg) scaleX(-1)',
+                      boxShadow: 'inset 8px 0 20px rgba(0,0,0,0.05)'
+                    }}
+                  >
+                    <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-black/10 to-transparent pointer-events-none z-10" />
+                    <div className="transform scale-x-[-1]">
+                      <PageContent 
+                        page={prevEntry.rightPage}
+                        side="right"
+                        pageNumber={(currentPage - 1) * 2 + 2}
+                        isEditing={false}
+                        content={prevEntry.rightPage.content}
+                        onContentChange={() => {}}
+                        onEditClick={() => {}}
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </div>
